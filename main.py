@@ -31,7 +31,7 @@ async def health_check():
 
 if __name__ == "__main__":
     uvicorn.run(
-        app, 
+        "main:app",  # Import string format for reload
         host=config.HOST, 
         port=config.PORT,
         reload=True  # Auto-reload on code changes
