@@ -1,25 +1,33 @@
+# ===============================
 # Web Framework
-fastapi>=0.104.1
-uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6
-pydantic>=2.5.0
+# ===============================
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+pydantic==2.5.2
 
-# Audio Processing
-librosa>=0.10.1
-soundfile>=0.12.1
-audioread>=3.0.1
+# ===============================
+# Audio Processing (lighter)
+# ===============================
+librosa==0.10.1
+soundfile==0.12.1
+audioread==3.0.1
 
-# Machine Learning
-torch>=2.1.0
-torchaudio>=2.1.0
-transformers>=4.35.0
-numpy>=1.24.3
-scipy>=1.11.3
+# ===============================
+# Machine Learning (CPU-only)
+# ===============================
+numpy==1.24.4
+scipy==1.11.4
 
+# CPU-only PyTorch (VERY IMPORTANT)
+torch==2.0.1+cpu
+torchaudio==2.0.2+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+transformers==4.35.2
+
+# ===============================
 # Utilities
-python-dotenv>=1.0.0
-requests>=2.31.0
-
-# Testing
-pytest>=7.4.0
-httpx>=0.25.0
+# ===============================
+python-dotenv==1.0.0
+requests==2.31.0
