@@ -1,0 +1,97 @@
+{
+  "audio.wav": {
+    "status": "error",
+    "language": null,
+    "classification": null,
+    "confidenceScore": null,
+    "confidenceLevel": null,
+    "explanation": null,
+    "details": null,
+    "message": "Failed to decode audio: Failed to load audio: Audio too long: 56.3s (max 30s)"
+  },
+  "audio_trimmed.wav": {
+    "status": "success",
+    "language": "Tamil",
+    "classification": "HUMAN",
+    "confidenceScore": 0.6094,
+    "confidenceLevel": "MEDIUM",
+    "explanation": "Detected as human voice with moderate confidence (61%) due to irregular acoustic patterns.",
+    "details": {
+      "wav2vec2_score": 0.5,
+      "acoustic_score": 0.1353,
+      "combined_score": 0.3906,
+      "processing_time_ms": 1507,
+      "audio_duration_seconds": 30.0,
+      "sample_rate": 16000
+    },
+    "message": null
+  },
+  "data_voices_martin_voyels_exports_mono__-a-c3-2.wav": {
+    "status": "success",
+    "language": "English",
+    "classification": "AI_GENERATED",
+    "confidenceScore": 0.648,
+    "confidenceLevel": "HIGH",
+    "explanation": "Detected as AI-generated with very high confidence (65%) due to high consistency in voice embeddings.",
+    "details": {
+      "wav2vec2_score": 0.8,
+      "acoustic_score": 0.2933,
+      "combined_score": 0.648,
+      "processing_time_ms": 629,
+      "audio_duration_seconds": 1.23,
+      "sample_rate": 16000
+    },
+    "message": null
+  },
+  "data_voices_martin_voyels_exports_mono__-ou-c3.wav": {
+    "status": "success",
+    "language": "English",
+    "classification": "AI_GENERATED",
+    "confidenceScore": 0.6381,
+    "confidenceLevel": "HIGH",
+    "explanation": "Detected as AI-generated with very high confidence (64%) due to high consistency in voice embeddings.",
+    "details": {
+      "wav2vec2_score": 0.8,
+      "acoustic_score": 0.2604,
+      "combined_score": 0.6381,
+      "processing_time_ms": 626,
+      "audio_duration_seconds": 1.18,
+      "sample_rate": 16000
+    },
+    "message": null
+  },
+  "Namami_30s.mp3": {
+    "status": "success",
+    "language": "Tamil",
+    "classification": "HUMAN",
+    "confidenceScore": 0.597,
+    "confidenceLevel": "MEDIUM",
+    "explanation": "Detected as human voice with moderate confidence (60%) due to irregular acoustic patterns.",
+    "details": {
+      "wav2vec2_score": 0.5,
+      "acoustic_score": 0.1765,
+      "combined_score": 0.403,
+      "processing_time_ms": 642,
+      "audio_duration_seconds": 30.0,
+      "sample_rate": 16000
+    },
+    "message": null
+  },
+  "sample voice 1.mp3": {
+    "status": "success",
+    "language": "Tamil",
+    "classification": "HUMAN",
+    "confidenceScore": 0.6041,
+    "confidenceLevel": "MEDIUM",
+    "explanation": "Detected as human voice with moderate confidence (60%) due to irregular acoustic patterns.",
+    "details": {
+      "wav2vec2_score": 0.5,
+      "acoustic_score": 0.1529,
+      "combined_score": 0.3959,
+      "processing_time_ms": 605,
+      "audio_duration_seconds": 23.59,
+      "sample_rate": 16000
+    },
+    "message": null
+  }
+}
