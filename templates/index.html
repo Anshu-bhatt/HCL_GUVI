@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Detection</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #5B9BD5 0%, #8BA8C9 35%, #C7B3C3 65%, #F5C6CB 100%);
+            min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px;
+        }
+        .container { max-width: 800px; width: 100%; }
+        .header { text-align: center; margin-bottom: 40px; color: white; }
+        .header h1 { font-size: 3rem; font-weight: 700; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .header p { font-size: 1.2rem; opacity: 0.95; }
+        .card { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .upload-area {
+            border: 3px dashed #5B9BD5; border-radius: 15px; padding: 60px 20px; text-align: center;
+            cursor: pointer; transition: all 0.3s ease; background: #f8f9fa;
+        }
+        .upload-area:hover { border-color: #4A8CC7; background: #e9ecef; transform: translateY(-2px); }
+        .upload-area.dragover { background: #e3f2fd; border-color: #2196F3; }
+        .upload-icon { font-size: 4rem; margin-bottom: 20px; color: #5B9BD5; }
+        .upload-text { font-size: 1.3rem; color: #333; margin-bottom: 10px; }
+        .upload-subtext { color: #666; font-size: 0.95rem; }
+        .file-input { display: none; }
+        .audio-preview { display: none; margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .audio-preview.active { display: block; }
+        .file-name { font-weight: 600; color: #333; margin-bottom: 15px; font-size: 1.1rem; }
+        .audio-player { width: 100%; margin-bottom: 15px; }
+        .detect-btn {
+            width: 100%; padding: 15px; background: linear-gradient(135deg, #5B9BD5, #4A8CC7); color: white;
+            border: none; border-radius: 10px; font-size: 1.2rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        }
+        .detect-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(91,155,213,0.4); }
+        .detect-btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.active { display: block; }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #5B9BD5; border-radius: 50%;
+            width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .results { display: none; margin-top: 20px; }
+        .results.active { display: block; }
+        .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
+        .classification { font-size: 2rem; font-weight: 700; }
+        .classification.human { color: #28a745; }
+        .classification.ai { color: #dc3545; }
+        .classification.uncertain { color: #ffc107; }
+        .confidence-badge { padding: 8px 20px; border-radius: 25px; font-weight: 600; font-size: 0.95rem; }
+        .confidence-badge.high { background: #d4edda; color: #155724; }
+        .confidence-badge.medium { background: #fff3cd; color: #856404; }
+        .confidence-badge.low { background: #f8d7da; color: #721c24; }
+        .confidence-bar-container { margin: 25px 0; }
+        .confidence-label { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600; color: #333; }
+        .confidence-bar { height: 30px; background: #e9ecef; border-radius: 15px; overflow: hidden; }
+        .confidence-fill {
+            height: 100%; border-radius: 15px; transition: width 1s ease; display: flex; align-items: center;
+            justify-content: flex-end; padding-right: 15px; color: white; font-weight: 600;
+        }
+        .confidence-fill.human { background: linear-gradient(90deg, #28a745, #20c997); }
+        .confidence-fill.ai { background: linear-gradient(90deg, #dc3545, #fd7e14); }
+        .confidence-fill.uncertain { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+        .details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 25px; }
+        .detail-item { padding: 15px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #5B9BD5; }
+        .detail-label { font-size: 0.85rem; color: #666; margin-bottom: 5px; }
+        .detail-value { font-size: 1.3rem; font-weight: 600; color: #333; }
+        .explanation { margin-top: 25px; padding: 20px; background: #e3f2fd; border-radius: 10px; border-left: 4px solid #2196F3; }
+        .explanation-label { font-weight: 600; color: #1976D2; margin-bottom: 10px; }
+        .explanation-text { color: #333; line-height: 1.6; }
+        .error { display: none; padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 10px; color: #721c24; margin-top: 20px; }
+        .error.active { display: block; }
+        .reset-btn {
+            margin-top: 20px; width: 100%; padding: 12px; background: #6c757d; color: white; border: none;
+            border-radius: 10px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        }
+        .reset-btn:hover { background: #5a6268; transform: translateY(-2px); }
+        #removeBtn:hover { background: #c82333 !important; }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2rem; }
+            .card { padding: 25px; }
+            .details-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 AI Voice Detection</h1>
+            <p>Upload audio to detect if it's human or AI-generated</p>
+        </div>
+        <div class="card">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">🎵</div>
+                <div class="upload-text">Drag & Drop Audio File</div>
+                <div class="upload-subtext">or click to browse (MP3, WAV, OGG - Max 30 seconds)</div>
+                <input type="file" id="fileInput" class="file-input" accept="audio/*">
+            </div>
+            <div class="audio-preview" id="audioPreview">
+                <div class="file-name" id="fileName"></div>
+                <div id="durationInfo" style="color: #666; margin: 10px 0; font-size: 0.95rem;"></div>
+                <audio controls class="audio-player" id="audioPlayer"></audio>
+                <div id="trimOption" style="display: none; margin: 15px 0; padding: 15px; background: #fff3cd; border-radius: 10px; border-left: 4px solid #ffc107;">
+                    <div style="font-weight: 600; color: #856404; margin-bottom: 8px;">⚠️ Audio exceeds 30 seconds</div>
+                    <div style="color: #856404; margin-bottom: 10px;">Would you like to trim to first 30 seconds?</div>
+                    <button class="detect-btn" id="trimBtn" style="background: linear-gradient(135deg, #ffc107, #fd7e14); margin-bottom: 10px;">✂️ Trim to 30 Seconds</button>
+                </div>
+                <button class="detect-btn" id="detectBtn">🔍 Detect Voice</button>
+                <button class="reset-btn" id="removeBtn" style="background: #dc3545; margin-top: 10px;">🗑️ Remove & Upload New</button>
+            </div>
+            <div class="loading" id="loading"><div class="spinner"></div><div>Analyzing audio...</div></div>
+            <div class="results" id="results">
+                <div class="result-header">
+                    <div class="classification" id="classification"></div>
+                    <div class="confidence-badge" id="confidenceBadge"></div>
+                </div>
+                <div class="confidence-bar-container">
+                    <div class="confidence-label"><span>Confidence Score</span><span id="confidencePercent"></span></div>
+                    <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
+                </div>
+                <div class="details-grid" id="detailsGrid"></div>
+                <div class="explanation">
+                    <div class="explanation-label">📊 Analysis Details</div>
+                    <div class="explanation-text" id="explanationText"></div>
+                </div>
+                <button class="reset-btn" id="resetBtn">🔄 Analyze Another Audio</button>
+            </div>
+            <div class="error" id="error"></div>
+        </div>
+    </div>
+    <script>
+        const uploadArea = document.getElementById('uploadArea'), fileInput = document.getElementById('fileInput'),
+              audioPreview = document.getElementById('audioPreview'), fileName = document.getElementById('fileName'),
+              audioPlayer = document.getElementById('audioPlayer'), detectBtn = document.getElementById('detectBtn'),
+              loading = document.getElementById('loading'), results = document.getElementById('results'),
+              error = document.getElementById('error'), resetBtn = document.getElementById('resetBtn'),
+              removeBtn = document.getElementById('removeBtn'), trimBtn = document.getElementById('trimBtn'),
+              trimOption = document.getElementById('trimOption'), durationInfo = document.getElementById('durationInfo');
+        let selectedFile = null, audioDuration = 0;
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault(); uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('audio/')) { showError('Please select a valid audio file'); return; }
+            selectedFile = file; fileName.textContent = `📁 ${file.name}`;
+            const url = URL.createObjectURL(file); audioPlayer.src = url;
+            audioPlayer.onloadedmetadata = function() {
+                audioDuration = audioPlayer.duration; durationInfo.textContent = `⏱️ Duration: ${audioDuration.toFixed(2)}s`;
+                if (audioDuration > 30) { trimOption.style.display = 'block'; detectBtn.disabled = true; detectBtn.style.opacity = '0.5'; }
+                else { trimOption.style.display = 'none'; detectBtn.disabled = false; detectBtn.style.opacity = '1'; }
+            };
+            audioPreview.classList.add('active'); uploadArea.style.display = 'none';
+            error.classList.remove('active'); results.classList.remove('active');
+        }
+
+        detectBtn.addEventListener('click', async () => {
+            if (!selectedFile) return; detectBtn.disabled = true; loading.classList.add('active');
+            results.classList.remove('active'); error.classList.remove('active');
+            const formData = new FormData(); formData.append('audio', selectedFile);
+            try {
+                const response = await fetch('/detect', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (response.ok) displayResults(data); else showError(data.error || 'Detection failed');
+            } catch (err) { showError('Network error: ' + err.message); }
+            finally { loading.classList.remove('active'); detectBtn.disabled = false; }
+        });
+
+        function displayResults(data) {
+            const isHuman = data.classification === 'HUMAN', isAI = data.classification === 'AI_GENERATED';
+            const confidence = (data.confidence * 100).toFixed(2);
+            document.getElementById('classification').textContent = isHuman ? '✅ HUMAN VOICE' : isAI ? '🤖 AI GENERATED' : '⚠️ UNCERTAIN';
+            document.getElementById('classification').className = `classification ${isHuman ? 'human' : isAI ? 'ai' : 'uncertain'}`;
+            const confidenceLevel = data.confidence_level || 'MEDIUM';
+            document.getElementById('confidenceBadge').textContent = confidenceLevel + ' CONFIDENCE';
+            document.getElementById('confidenceBadge').className = `confidence-badge ${confidenceLevel.toLowerCase()}`;
+            document.getElementById('confidencePercent').textContent = confidence + '%';
+            document.getElementById('confidenceFill').style.width = confidence + '%';
+            document.getElementById('confidenceFill').textContent = confidence + '%';
+            document.getElementById('confidenceFill').className = `confidence-fill ${isHuman ? 'human' : isAI ? 'ai' : 'uncertain'}`;
+            const details = data.details || {};
+            document.getElementById('detailsGrid').innerHTML = `
+                <div class="detail-item"><div class="detail-label">Processing Time</div><div class="detail-value">${(details.processing_time_ms || 0).toFixed(0)}ms</div></div>
+            `;
+            document.getElementById('explanationText').textContent = data.explanation || 'No additional details available.';
+            results.classList.add('active');
+        }
+
+        function showError(message) { error.textContent = '❌ Error: ' + message; error.classList.add('active'); }
+
+        removeBtn.addEventListener('click', () => {
+            selectedFile = null; fileInput.value = ''; audioPreview.classList.remove('active');
+            results.classList.remove('active'); error.classList.remove('active'); trimOption.style.display = 'none';
+            uploadArea.style.display = 'block'; if (audioPlayer.src) URL.revokeObjectURL(audioPlayer.src);
+        });
+
+        trimBtn.addEventListener('click', async () => {
+            if (!selectedFile) return; trimBtn.disabled = true; trimBtn.textContent = '✂️ Trimming...';
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const sampleRate = audioBuffer.sampleRate, duration = 30, numSamples = duration * sampleRate;
+                const numChannels = audioBuffer.numberOfChannels;
+                const trimmedBuffer = audioContext.createBuffer(numChannels, numSamples, sampleRate);
+                for (let channel = 0; channel < numChannels; channel++) {
+                    const channelData = audioBuffer.getChannelData(channel);
+                    const trimmedData = trimmedBuffer.getChannelData(channel);
+                    for (let i = 0; i < numSamples && i < channelData.length; i++) trimmedData[i] = channelData[i];
+                }
+                const wavBlob = bufferToWave(trimmedBuffer, numSamples);
+                const trimmedFile = new File([wavBlob], selectedFile.name.replace(/\.[^/.]+$/, '_trimmed.wav'), { type: 'audio/wav' });
+                handleFile(trimmedFile); trimBtn.textContent = '✅ Trimmed to 30s';
+                setTimeout(() => { trimBtn.textContent = '✂️ Trim to 30 Seconds'; trimBtn.disabled = false; }, 2000);
+            } catch (err) { showError('Trimming failed: ' + err.message); trimBtn.textContent = '✂️ Trim to 30 Seconds'; trimBtn.disabled = false; }
+        });
+
+        function bufferToWave(abuffer, len) {
+            const numOfChan = abuffer.numberOfChannels, length = len * numOfChan * 2 + 44;
+            const buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [];
+            let sample, offset = 0, pos = 0;
+            const setUint16 = (data) => { view.setUint16(offset, data, true); offset += 2; };
+            const setUint32 = (data) => { view.setUint32(offset, data, true); offset += 4; };
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157); setUint32(0x20746d66);
+            setUint32(16); setUint16(1); setUint16(numOfChan); setUint32(abuffer.sampleRate);
+            setUint32(abuffer.sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16);
+            setUint32(0x61746164); setUint32(length - pos - 4);
+            for (let i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
+            while (pos < len) {
+                for (let i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][pos]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+                    view.setInt16(offset, sample, true); offset += 2;
+                }
+                pos++;
+            }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        resetBtn.addEventListener('click', () => {
+            selectedFile = null; fileInput.value = ''; audioPreview.classList.remove('active');
+            results.classList.remove('active'); error.classList.remove('active'); trimOption.style.display = 'none';
+            uploadArea.style.display = 'block'; if (audioPlayer.src) URL.revokeObjectURL(audioPlayer.src);
+        });
+    </script>
+</body>
+</html>

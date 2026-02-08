@@ -158,64 +158,143 @@ class HybridDetector:
     Combines Wav2Vec2 embeddings + Acoustic features for better accuracy
     """
     
-    def __init__(self):
-        """Initialize hybrid detector"""
+    def __init__(self, ai_threshold: float = 0.5):
+        """
+        Initialize hybrid detector
+        
+        Args:
+            ai_threshold: Threshold for AI classification (default 0.5)
+                         Lower = more likely to classify as HUMAN
+                         Higher = more likely to classify as AI
+                         Recommended: 0.45-0.55 range
+        """
         self.wav2vec2_detector = Wav2Vec2Detector()
-        logger.info("✓ HybridDetector initialized")
+        self.ai_threshold = ai_threshold
+        logger.info(f"✓ HybridDetector initialized (threshold: {ai_threshold})")
     
     def detect(self, audio: np.ndarray, acoustic_features: Dict[str, float], 
-               sample_rate: int = 16000) -> Tuple[str, float, Dict]:
+               sample_rate: int = 16000, original_duration: float = None) -> Tuple[str, float, Dict]:
         """
         Hybrid detection using both Wav2Vec2 and acoustic features
         
         Args:
-            audio: Audio array
+            audio: Audio array (may be preprocessed/padded)
             acoustic_features: Features from AudioProcessor
             sample_rate: Sample rate
+            original_duration: Original audio duration before preprocessing (optional)
             
         Returns:
             Tuple of (classification, confidence_score, details)
         """
+        # Use original duration if provided, otherwise calculate from audio length
+        if original_duration is not None:
+            audio_duration = original_duration
+        else:
+            audio_duration = len(audio) / sample_rate
+        
         # Get Wav2Vec2 prediction
         w2v_class, w2v_conf, w2v_details = self.wav2vec2_detector.detect(audio, sample_rate)
         
         # Analyze acoustic features for AI patterns
         acoustic_ai_score = 0.0
         
-        # Low variance in pitch suggests AI
-        if acoustic_features.get('spectral_centroid_std', 100) < 50:
-            acoustic_ai_score += 0.3
+        # Low variance in pitch suggests AI (adjusted threshold)
+        spectral_std = acoustic_features.get('spectral_centroid_std', 100)
+        if spectral_std < 100:
+            acoustic_ai_score += 0.3 * (1 - spectral_std / 100)  # Gradual score
         
-        # Consistent zero-crossing suggests AI
-        if acoustic_features.get('zcr_std', 1.0) < 0.01:
-            acoustic_ai_score += 0.3
+        # Consistent zero-crossing suggests AI (adjusted threshold)
+        zcr_std = acoustic_features.get('zcr_std', 1.0)
+        if zcr_std < 0.05:
+            acoustic_ai_score += 0.3 * (1 - zcr_std / 0.05)  # Gradual score
         
-        # Smooth RMS energy suggests AI
-        if acoustic_features.get('rms_std', 1.0) < 0.05:
-            acoustic_ai_score += 0.2
+        # Smooth RMS energy suggests AI (adjusted threshold)
+        rms_std = acoustic_features.get('rms_std', 1.0)
+        if rms_std < 0.2:
+            acoustic_ai_score += 0.2 * (1 - rms_std / 0.2)  # Gradual score
         
-        # Low MFCC variance suggests AI
+        # Low MFCC variance suggests AI (adjusted threshold)
         mfcc_vars = [acoustic_features.get(f'mfcc_{i}_std', 10) for i in range(13)]
-        if np.mean(mfcc_vars) < 5.0:
-            acoustic_ai_score += 0.2
+        avg_mfcc_var = np.mean(mfcc_vars)
+        if avg_mfcc_var < 10.0:
+            acoustic_ai_score += 0.2 * (1 - avg_mfcc_var / 10.0)  # Gradual score
         
         # Combine scores (weighted average)
-        w2v_score = w2v_conf if w2v_class == "AI_GENERATED" else (1.0 - w2v_conf)
-        combined_score = 0.7 * w2v_score + 0.3 * acoustic_ai_score
+        # For very short audio (< 2s), reduce Wav2Vec2 weight as it's unreliable for isolated sounds
+        if audio_duration < 2.0:
+            # Short audio: rely more on acoustic features, less on Wav2Vec2
+            w2v_weight = 0.3  # Reduced from 0.7
+            acoustic_weight = 0.7  # Increased from 0.3
+            logger.info(f"Short audio ({audio_duration:.2f}s) - using adjusted weights (W2V: {w2v_weight}, Acoustic: {acoustic_weight})")
+        else:
+            # Normal audio: standard weights
+            w2v_weight = 0.7
+            acoustic_weight = 0.3
         
-        # Final classification
-        classification = "AI_GENERATED" if combined_score > 0.5 else "HUMAN"
-        confidence = combined_score if combined_score > 0.5 else (1.0 - combined_score)
+        w2v_score = w2v_conf if w2v_class == "AI_GENERATED" else (1.0 - w2v_conf)
+        combined_score = w2v_weight * w2v_score + acoustic_weight * acoustic_ai_score
+        
+        # Log the actual calculation for debugging
+        logger.info(f"Score calculation: {w2v_weight} * {w2v_score} + {acoustic_weight} * {acoustic_ai_score} = {combined_score}")
+        
+        # Classification with confidence bands (adjusted for practical use)
+        # For very short audio, use wider UNCERTAIN zone
+        if audio_duration < 2.0:
+            # Short audio: be more conservative, wider uncertain zone
+            if combined_score >= 0.70:
+                classification = "AI_GENERATED"
+                confidence_level = "MEDIUM"  # Lower confidence for short audio
+                confidence = combined_score
+            elif combined_score >= 0.55:
+                classification = "UNCERTAIN"
+                confidence_level = "LOW"
+                confidence = 0.5
+                logger.info(f"Short audio marked as UNCERTAIN (score: {combined_score:.2f})")
+            elif combined_score >= 0.30:
+                classification = "UNCERTAIN"
+                confidence_level = "LOW"
+                confidence = 0.5
+                logger.info(f"Short audio marked as UNCERTAIN (score: {combined_score:.2f})")
+            else:
+                classification = "HUMAN"
+                confidence_level = "MEDIUM"  # Lower confidence for short audio
+                confidence = 1.0 - combined_score
+        else:
+            # Normal audio: standard confidence bands
+            if combined_score >= 0.60:
+                classification = "AI_GENERATED"
+                confidence_level = "HIGH"
+                confidence = combined_score
+            elif combined_score >= 0.55:
+                classification = "AI_GENERATED"
+                confidence_level = "MEDIUM"
+                confidence = combined_score
+            elif combined_score >= 0.45:
+                classification = "UNCERTAIN"
+                confidence_level = "LOW"
+                confidence = 0.5  # Neutral confidence for uncertain cases
+            elif combined_score >= 0.30:
+                classification = "HUMAN"
+                confidence_level = "MEDIUM"
+                confidence = 1.0 - combined_score
+            else:
+                classification = "HUMAN"
+                confidence_level = "HIGH"
+                confidence = 1.0 - combined_score
         
         details = {
             'wav2vec2': w2v_details,
             'acoustic_ai_score': acoustic_ai_score,
             'combined_score': combined_score,
             'classification': classification,
-            'confidence': confidence
+            'confidence': confidence,
+            'confidence_level': confidence_level,
+            'audio_duration': audio_duration,
+            'is_short_audio': audio_duration < 2.0,
+            'weights_used': {'wav2vec2': w2v_weight, 'acoustic': acoustic_weight}
         }
         
-        logger.info(f"Hybrid detection: {classification} (confidence: {confidence:.2f})")
+        logger.info(f"Hybrid detection: {classification} ({confidence_level} confidence: {confidence:.2f})")
         return classification, confidence, details
 
 
