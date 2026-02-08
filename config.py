@@ -3,14 +3,16 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
+
+ENV = os.getenv("ENVIRONMENT", "development")
 
 class Config:
     """Application configuration"""
     
     # API Settings
-    API_KEY = os.getenv("API_KEY", "sk_test_123456789")
+    API_KEY = os.getenv("API_KEY", "GUVI_HACKATHON_VOICEGUARD_2026_AUTH_KEY_123456")
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     
     # Server Settings

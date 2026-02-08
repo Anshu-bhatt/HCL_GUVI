@@ -1,13 +1,13 @@
-# AI Voice Detection API - Development Guide
+# AI Voice Detection API - VoiceGUARD
 
 ## 📋 Project Overview
 
-Multi-language AI voice detection system that identifies whether audio is AI-generated or human-spoken across 5 languages: Tamil, English, Hindi, Malayalam, and Telugu.
+Multi-language AI voice detection system that identifies whether audio is **AI-generated** (deepfake) or **human-spoken** across 5 languages: Tamil, English, Hindi, Malayalam, and Telugu.
 
 **Hackathon:** GUVI AI Hackathon  
 **Problem Statement:** AI-Generated Voice Detection (Multi-Language)  
 **Timeline:** 7 days  
-**Current Status:** Feature 2 Complete ✓
+**Current Status:** Feature 3 Complete ✓ (VoiceGUARD Model Integrated)
 
 ---
 
@@ -15,375 +15,93 @@ Multi-language AI voice detection system that identifies whether audio is AI-gen
 
 - ✅ Build REST API for voice authentication detection
 - ✅ Support 5 languages (Tamil, English, Hindi, Malayalam, Telugu)
-- ✅ Accept Base64-encoded MP3 audio
+- ✅ Accept Base64-encoded audio (MP3, WAV, FLAC, OGG, M4A)
 - ✅ Return classification (AI_GENERATED or HUMAN) with confidence score
-- ✅ Achieve 75-80% accuracy without training data
-- ✅ Deploy production-ready API
+- ✅ Pre-trained VoiceGUARD model integration
+- ⏳ Deploy production-ready API
 
 ---
 
 ## 🏗️ Architecture & Strategy
 
-### **Chosen Approach:** Hybrid Detection System
+### **Chosen Approach:** VoiceGUARD Pre-trained Model
 
 **Why this approach:**
 
-- ⏱️ **Time constraint:** 2-3 hours/day for 7 days
-- 📊 **No training data** available initially
-- 🎯 **Goal:** Balance between accuracy and speed
-- ✅ **Feasible:** Uses pre-trained models + analytical features
+- 🎯 **Pre-trained model:** Uses `Mrkomiljon/voiceGUARD` from HuggingFace
+- 🔥 **No training needed:** Fine-tuned for deepfake detection
+- 📊 **High accuracy:** Trained on real deepfake datasets
+- 🌍 **Language agnostic:** Works across all supported languages
 
 ### **Technology Stack**
 
 ```
-┌─────────────────────────────────────────────┐
-│           FastAPI REST API                  │
-├─────────────────────────────────────────────┤
-│                                             │
-│  ┌──────────────┐      ┌──────────────┐   │
-│  │ Wav2Vec2     │  +   │  Acoustic    │   │
-│  │ Embeddings   │      │  Features    │   │
-│  │ (HuggingFace)│      │  (Librosa)   │   │
-│  └──────────────┘      └──────────────┘   │
-│         ↓                      ↓           │
-│  ┌──────────────────────────────────────┐ │
-│  │      Hybrid Detection Logic          │ │
-│  └──────────────────────────────────────┘ │
-│                    ↓                       │
-│         AI_GENERATED or HUMAN              │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│             FastAPI REST API                    │
+│         POST /classify endpoint                 │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  ┌────────────────────────────────────────┐     │
+│  │     VoiceGUARD (Wav2Vec2-based)        │     │
+│  │     Mrkomiljon/voiceGUARD              │     │
+│  │     Fine-tuned for Deepfake Detection  │     │
+│  └────────────────────────────────────────┘     │
+│                    ↓                            │
+│  ┌────────────────────────────────────────┐     │
+│  │        Classification Output           │     │
+│  │   • AI_GENERATED or HUMAN              │     │
+│  │   • Confidence Score (0-100%)          │     │
+│  │   • Confidence Level (HIGH/MEDIUM/LOW) │     │
+│  │   • Detailed Probabilities             │     │
+│  └────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────┘
 ```
 
 ### **Core Components**
 
-1. **Audio Processor** - Handles Base64 decoding, validation, preprocessing
-2. **Model Detector** - Wav2Vec2 embeddings + heuristic analysis
-3. **FastAPI Server** - REST API with authentication
-4. **Deployment** - Railway/Render cloud deployment
+| Component               | File                     | Description                                   |
+| ----------------------- | ------------------------ | --------------------------------------------- |
+| **VoiceGUARD Detector** | `voiceguard_detector.py` | Pre-trained Wav2Vec2 model for classification |
+| **Audio Processor**     | `audio_preprocessor.py`  | Base64 decoding, validation, preprocessing    |
+| **API Models**          | `api_models.py`          | Pydantic request/response schemas             |
+| **FastAPI Server**      | `main.py`                | REST API with `/classify` endpoint            |
+| **Demo Script**         | `demo_classify.py`       | Test classification locally                   |
 
 ---
 
-## 📅 Development Roadmap (7 Days)
+## ✅ Features Implemented
 
-### ✅ **Day 1-2: Foundation (COMPLETED)**
+### Feature 1: Project Setup ✓
 
-#### **Feature 1: Project Setup & Environment** ✓
+- Virtual environment setup
+- Dependency installation
+- Configuration management
+- Basic FastAPI application
 
-**Status:** Complete  
-**Time Spent:** 1.5 hours
+### Feature 2: Audio Processing Pipeline ✓
 
-**What was built:**
+- Base64 audio decoding
+- Multi-format support (MP3, WAV, FLAC, OGG, M4A)
+- Audio preprocessing (normalization, trimming)
+- Feature extraction (40+ acoustic features)
 
-- ✅ Virtual environment setup
-- ✅ Dependency installation (FastAPI, PyTorch, Librosa)
-- ✅ Configuration management (`config.py`)
-- ✅ Basic FastAPI application
-- ✅ Health check endpoints
-- ✅ Environment variables setup
-- ✅ Verification scripts
+### Feature 3: VoiceGUARD Model Integration ✓ (NEW)
 
-**Files Created:**
-
-```
-├── .env                    # Environment configuration
-├── .gitignore             # Git ignore rules
-├── config.py              # Application config
-├── main.py                # FastAPI app
-├── requirements.txt       # Dependencies
-└── verify_setup.py        # Setup verification
-```
-
-**Verification:**
-
-```bash
-python verify_setup.py
-python main.py
-# Visit: http://localhost:8000/docs
-```
+- **Pre-trained model:** `Mrkomiljon/voiceGUARD` from HuggingFace
+- **Classification endpoint:** `POST /classify`
+- **Confidence scoring:** 0-100% with levels (VERY_HIGH, HIGH, MEDIUM, LOW, VERY_LOW)
+- **Detailed response:** Probabilities, raw scores, model info
+- **Comprehensive tests:** Unit tests, API tests, demo script
 
 ---
 
-#### **Feature 2: Audio Processing Pipeline** ✓
-
-**Status:** Complete  
-**Time Spent:** 2.5 hours
-
-**What was built:**
-
-- ✅ Base64 audio decoding
-- ✅ Audio loading and validation
-- ✅ Preprocessing (normalization, trimming, padding)
-- ✅ Feature extraction (40+ acoustic features)
-- ✅ Error handling for invalid audio
-- ✅ Audio information extraction
-- ✅ Comprehensive testing suite
-
-**Files Created:**
-
-```
-├── audio_processor.py           # Main audio processor
-├── download_sample.py           # Sample audio downloader
-│
-├── utils/
-│   └── audio_helpers.py         # Utility functions
-│
-└── tests/
-    ├── test_audio_processor.py      # Unit tests
-    └── test_with_real_audio.py      # Integration tests
-```
-
-**Features Extracted:**
-
-- Spectral features (centroid, rolloff, bandwidth)
-- Zero crossing rate
-- MFCC (13 coefficients)
-- RMS energy
-- Spectral contrast
-
-**Verification:**
-
-```bash
-python tests/test_audio_processor.py
-python download_sample.py
-python tests/test_with_real_audio.py
-```
-
----
-
-### 🔄 **Day 3: Model Integration (IN PROGRESS)**
-
-#### **Feature 3: Pre-trained Model Integration**
-
-**Status:** Ready to implement  
-**Estimated Time:** 2.5 hours
-
-**What will be built:**
-
-- ⏳ Wav2Vec2 model integration (HuggingFace)
-- ⏳ Embedding extraction pipeline
-- ⏳ Heuristic-based AI detection (no training needed)
-- ⏳ Hybrid detector (embeddings + acoustic features)
-- ⏳ Model testing and validation
-
-**Files to Create:**
-
-```
-├── model_detector.py                  # Wav2Vec2 detector
-├── compare_detectors.py               # Comparison tool
-├── optimize_model.py                  # Optimization guide
-│
-└── tests/
-    ├── test_model_detector.py         # Model unit tests
-    └── test_model_with_real_audio.py  # Model integration tests
-```
-
-**Key Components:**
-
-1. **Wav2Vec2Detector** - Pre-trained model wrapper
-2. **Embedding Analysis** - Detect AI patterns in embeddings
-3. **HybridDetector** - Combine multiple signals
-
-**Next Steps:**
-
-```bash
-# Update requirements
-pip install transformers datasets accelerate
-
-# Implement model_detector.py
-# Run tests
-python tests/test_model_detector.py
-```
-
----
-
-### 📋 **Day 4: API Integration (PLANNED)**
-
-#### **Feature 4: Complete API Implementation**
-
-**Status:** Planned  
-**Estimated Time:** 2 hours
-
-**What will be built:**
-
-- ⏳ POST endpoint for voice detection
-- ⏳ Request validation (language, format, Base64)
-- ⏳ API key authentication
-- ⏳ Response formatting (JSON structure)
-- ⏳ Error handling and status codes
-- ⏳ Rate limiting (optional)
-
-**Files to Create/Update:**
-
-```
-├── main.py                  # Update with detection endpoint
-├── schemas.py               # Pydantic models
-├── middleware.py            # Authentication, logging
-│
-└── tests/
-    └── test_api_endpoints.py  # API tests
-```
-
-**Endpoint Specification:**
-
-```
-POST /api/voice-detection
-Headers:
-  - x-api-key: YOUR_API_KEY
-  - Content-Type: application/json
-
-Body:
-{
-  "language": "Tamil",
-  "audioFormat": "mp3",
-  "audioBase64": "..."
-}
-
-Response:
-{
-  "status": "success",
-  "language": "Tamil",
-  "classification": "AI_GENERATED",
-  "confidenceScore": 0.87,
-  "explanation": "..."
-}
-```
-
----
-
-### 🧪 **Day 5: Testing & Validation (PLANNED)**
-
-#### **Feature 5: Comprehensive Testing**
-
-**Status:** Planned  
-**Estimated Time:** 3 hours
-
-**What will be built:**
-
-- ⏳ Test with all 5 languages
-- ⏳ Collect diverse audio samples
-- ⏳ Accuracy measurement
-- ⏳ Edge case testing
-- ⏳ Performance benchmarking
-- ⏳ Fine-tune detection thresholds
-
-**Test Categories:**
-
-1. **Language Coverage** - Test Tamil, English, Hindi, Malayalam, Telugu
-2. **Audio Quality** - Test with different bitrates, noise levels
-3. **AI Voices** - ElevenLabs, Google TTS, Azure TTS samples
-4. **Human Voices** - Record own voice, use public datasets
-5. **Edge Cases** - Very short audio, silence, music
-
-**Files to Create:**
-
-```
-└── tests/
-    ├── test_all_languages.py
-    ├── test_edge_cases.py
-    ├── test_performance.py
-    └── accuracy_report.py
-```
-
----
-
-### 🚀 **Day 6: Deployment Preparation (PLANNED)**
-
-#### **Feature 6: Production Deployment**
-
-**Status:** Planned  
-**Estimated Time:** 2.5 hours
-
-**What will be built:**
-
-- ⏳ Docker containerization
-- ⏳ Environment configuration for production
-- ⏳ Railway/Render deployment setup
-- ⏳ Monitoring and logging
-- ⏳ API documentation (Swagger)
-
-**Files to Create:**
-
-```
-├── Dockerfile              # Container configuration
-├── docker-compose.yml      # Local testing
-├── railway.json            # Railway config
-├── render.yaml             # Render config
-└── .dockerignore          # Docker ignore
-```
-
-**Deployment Platforms:**
-
-- **Primary:** Railway (recommended)
-- **Backup:** Render
-- **Alternative:** Docker on any cloud
-
----
-
-### 🎨 **Day 7: Polish & Documentation (PLANNED)**
-
-#### **Feature 7: Final Polish**
-
-**Status:** Planned  
-**Estimated Time:** 2.5 hours
-
-**What will be done:**
-
-- ⏳ API documentation refinement
-- ⏳ README completion
-- ⏳ Demo video/screenshots
-- ⏳ Performance optimization
-- ⏳ Final testing in production
-- ⏳ Presentation preparation
-
-**Deliverables:**
-
-- ✅ Deployed API URL
-- ✅ API documentation
-- ✅ GitHub repository
-- ✅ Demo samples
-- ✅ Performance metrics
-
----
-
-## 📊 Current Project Structure
-
-```
-ai-voice-detection/
-│
-├── 📄 README.md                    # This file
-├── 📄 .env                         # Environment variables
-├── 📄 .gitignore                   # Git ignore
-├── 📄 requirements.txt             # Python dependencies
-├── 📄 config.py                    # Configuration ✓
-├── 📄 main.py                      # FastAPI app ✓
-├── 📄 audio_processor.py           # Audio processing ✓
-├── 📄 verify_setup.py              # Setup verification ✓
-├── 📄 download_sample.py           # Sample downloader ✓
-│
-├── 📁 models/
-│   └── (Wav2Vec2 cache will be here)
-│
-├── 📁 utils/
-│   └── 📄 audio_helpers.py         # Helper functions ✓
-│
-├── 📁 tests/
-│   ├── 📄 test_audio_processor.py      ✓
-│   └── 📄 test_with_real_audio.py      ✓
-│
-└── 📁 test_samples/
-    ├── sample_voice.mp3            # Downloaded sample
-    └── feature_summary.json        # Generated features
-```
-
----
-
-## 🔧 Setup Instructions
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python 3.8 or higher
-- 2GB free disk space (for models)
-- Stable internet connection (for model download)
+- 2GB free disk space (for model cache)
+- Stable internet connection (for first model download)
 
 ### Installation
 
@@ -393,254 +111,352 @@ git clone <your-repo-url>
 cd ai-voice-detection
 
 # 2. Create virtual environment
-python -m venv venv
+python -m venv .venv
 
 # Activate (Windows)
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # Activate (Mac/Linux)
-source venv/bin/activate
+source .venv/bin/activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
 
 # 4. Verify setup
 python verify_setup.py
-
-# 5. Download sample audio
-python download_sample.py
-
-# 6. Run tests
-python tests/test_audio_processor.py
-
-# 7. Start server
-python main.py
 ```
 
----
-
-## 🧪 Testing Guide
-
-### Current Tests Available
+### Running the API
 
 ```bash
-# Test 1: Setup verification
-python verify_setup.py
-
-# Test 2: Audio processor with synthetic audio
-python tests/test_audio_processor.py
-
-# Test 3: Audio processor with real MP3
-python tests/test_with_real_audio.py
-
-# Test 4: Run API server
+# Start the FastAPI server
 python main.py
-# Visit: http://localhost:8000/docs
+
+# Server runs at: http://localhost:8000
+# API docs at: http://localhost:8000/docs
 ```
 
----
-
-## 📝 Dependencies
-
-### Core Dependencies
-
-```
-fastapi==0.104.1          # Web framework
-uvicorn==0.24.0           # ASGI server
-librosa==0.10.1           # Audio processing
-torch==2.1.0              # Deep learning
-transformers==4.35.0      # HuggingFace models
-```
-
-### Full List
-
-See `requirements.txt` for complete dependency list.
-
----
-
-## 🎯 Performance Targets
-
-| Metric           | Target        | Current Status         |
-| ---------------- | ------------- | ---------------------- |
-| Accuracy         | 75-80%        | TBD (after Feature 3)  |
-| Response Time    | < 3 seconds   | TBD (after Feature 4)  |
-| Languages        | 5/5 supported | 5/5 ✓                  |
-| Audio Format     | MP3           | Supported ✓            |
-| Max Audio Length | 30 seconds    | Supported ✓            |
-| API Uptime       | 99%+          | TBD (after deployment) |
-
----
-
-## 🚀 Quick Start (For New Developers)
+### Demo Classification
 
 ```bash
-# Complete setup in 5 steps:
+# Run demo with synthetic audio
+python demo_classify.py
 
-# Step 1: Setup environment
-python -m venv venv && source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-# Step 2: Install everything
-pip install -r requirements.txt
-
-# Step 3: Verify it works
-python verify_setup.py
-
-# Step 4: Test with sample
-python download_sample.py && python tests/test_with_real_audio.py
-
-# Step 5: Start developing
-python main.py
+# Classify a specific audio file
+python demo_classify.py test_samples/sample_voice.mp3
 ```
 
 ---
 
-## 📖 API Documentation (Planned)
+## 📡 API Reference
 
-### Endpoint
+### Endpoints
 
-```
-POST /api/voice-detection
-```
+| Method | Endpoint      | Description        |
+| ------ | ------------- | ------------------ |
+| GET    | `/`           | API information    |
+| GET    | `/health`     | Health check       |
+| GET    | `/model/info` | Model information  |
+| POST   | `/classify`   | **Classify audio** |
 
-### Request Format
+### POST /classify
+
+Classify audio as AI-generated or Human.
+
+#### Request
 
 ```json
 {
-  "language": "Tamil",
-  "audioFormat": "mp3",
-  "audioBase64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAA..."
+  "audio_base64": "UklGRiQA...(base64 encoded audio)...",
+  "language": "English" // Optional
 }
 ```
 
-### Response Format
+#### Response
 
 ```json
 {
-  "status": "success",
-  "language": "Tamil",
   "classification": "AI_GENERATED",
-  "confidenceScore": 0.87,
-  "explanation": "Detected consistent embedding patterns, sparse spectral features"
+  "confidence": 0.9234,
+  "confidence_level": "VERY_HIGH",
+  "probabilities": {
+    "HUMAN": 0.0766,
+    "AI_GENERATED": 0.9234
+  },
+  "description": "Synthetic/AI-generated voice - potential deepfake",
+  "details": {
+    "model": "Mrkomiljon/voiceGUARD",
+    "audio_duration_seconds": 3.5,
+    "sample_rate": 16000,
+    "device": "cpu",
+    "threshold_used": 0.5,
+    "raw_scores": {
+      "bonafide_score": 0.0766,
+      "spoof_score": 0.9234
+    }
+  }
 }
 ```
 
-### Error Response
+### Python Example
 
-```json
-{
-  "status": "error",
-  "message": "Invalid API key or malformed request"
-}
+```python
+import requests
+import base64
+
+# Read and encode audio file
+with open("audio.mp3", "rb") as f:
+    audio_base64 = base64.b64encode(f.read()).decode()
+
+# Make request
+response = requests.post(
+    "http://localhost:8000/classify",
+    json={"audio_base64": audio_base64}
+)
+
+result = response.json()
+print(f"Classification: {result['classification']}")
+print(f"Confidence: {result['confidence']:.2%}")
+```
+
+### cURL Example
+
+```bash
+# Encode audio file
+AUDIO_BASE64=$(base64 -i audio.mp3)
+
+# Make request
+curl -X POST "http://localhost:8000/classify" \
+  -H "Content-Type: application/json" \
+  -d "{\"audio_base64\": \"$AUDIO_BASE64\"}"
 ```
 
 ---
 
-## 🔐 Security
+## 📊 Confidence Levels
 
-- ✅ API key authentication required
-- ✅ Input validation for all requests
-- ✅ Audio size limits (10MB max)
-- ✅ Rate limiting (planned)
-- ✅ HTTPS in production (deployment)
-
----
-
-## 🐛 Known Issues & Limitations
-
-### Current Limitations
-
-1. **No training data** - Using heuristic detection (75-80% accuracy expected)
-2. **Model size** - Wav2Vec2 is ~360MB (cached after first download)
-3. **Processing time** - 1-3 seconds per audio (can be optimized)
-
-### Planned Improvements
-
-1. Fine-tune thresholds with real test data
-2. Add model quantization for smaller size
-3. Implement caching for faster repeated requests
-4. Add batch processing support
+| Level     | Confidence Range | Interpretation                       |
+| --------- | ---------------- | ------------------------------------ |
+| VERY_HIGH | 95-100%          | Very confident classification        |
+| HIGH      | 85-95%           | High confidence                      |
+| MEDIUM    | 70-85%           | Moderate confidence                  |
+| LOW       | 55-70%           | Low confidence, may need review      |
+| VERY_LOW  | <55%             | Uncertain, manual review recommended |
 
 ---
 
-## 📚 Resources & References
+## 🧪 Testing
 
-### Documentation
+### Run All Tests
 
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Librosa Documentation](https://librosa.org/)
-- [HuggingFace Wav2Vec2](https://huggingface.co/facebook/wav2vec2-base)
-- [Problem Statement](./problem_statement.md)
+```bash
+# Install test dependencies
+pip install pytest httpx
 
-### Datasets (for testing)
+# Run all tests
+pytest tests/ -v
 
-- [Common Voice by Mozilla](https://commonvoice.mozilla.org/)
-- [ElevenLabs](https://elevenlabs.io/) - AI voice generation
-- [Google Cloud TTS](https://cloud.google.com/text-to-speech)
+# Run specific test file
+pytest tests/test_voiceguard.py -v
+pytest tests/test_api.py -v
+```
+
+### Test Coverage
+
+| Test File                       | Coverage                       |
+| ------------------------------- | ------------------------------ |
+| `tests/test_voiceguard.py`      | VoiceGUARD detector unit tests |
+| `tests/test_api.py`             | FastAPI endpoint tests         |
+| `tests/test_audio_processor.py` | Audio processing tests         |
+| `tests/test_model_detector.py`  | Legacy detector tests          |
 
 ---
 
-## 👥 Team & Contact
+## 📁 Project Structure
 
-**Developer:** [Your Name]  
-**Hackathon:** GUVI AI Hackathon 2025  
-**Timeline:** January 21-28, 2025  
-**Repository:** [GitHub URL]
+```
+ai-voice-detection/
+│
+├── 📄 README.md                    # This file
+├── 📄 requirements.txt             # Python dependencies
+├── 📄 config.py                    # Configuration ✓
+│
+├── 🚀 API & Detection
+├── 📄 main.py                      # FastAPI application ✓
+├── 📄 voiceguard_detector.py       # VoiceGUARD model ✓ (NEW)
+├── 📄 api_models.py                # Pydantic schemas ✓ (NEW)
+├── 📄 demo_classify.py             # Demo script ✓ (NEW)
+│
+├── 🔊 Audio Processing
+├── 📄 audio_preprocessor.py        # Audio processing ✓
+├── 📄 process_audio.py             # CLI audio processor ✓
+│
+├── 🤖 Models (Legacy)
+├── 📄 model_detector.py            # Wav2Vec2 heuristic detector
+│
+├── 📁 utils/
+│   └── 📄 audio_helpers.py         # Helper functions ✓
+│
+├── 📁 tests/
+│   ├── 📄 test_voiceguard.py       # VoiceGUARD tests ✓ (NEW)
+│   ├── 📄 test_api.py              # API endpoint tests ✓ (NEW)
+│   ├── 📄 test_audio_processor.py  # Audio tests ✓
+│   └── 📄 test_model_detector.py   # Model tests ✓
+│
+├── 📁 test_samples/
+│   └── sample_voice.mp3            # Sample audio file
+│
+└── 📁 models/                      # Model cache directory
+```
 
 ---
 
-## 📈 Progress Tracking
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `.env` file:
+
+```env
+# API Settings
+API_KEY=your_secret_key
+ENVIRONMENT=development
+
+# Server Settings
+HOST=0.0.0.0
+PORT=8000
+
+# Model Settings
+MAX_AUDIO_SIZE_MB=10
+```
+
+### Config Options (config.py)
+
+| Setting                    | Default                                  | Description            |
+| -------------------------- | ---------------------------------------- | ---------------------- |
+| `SAMPLE_RATE`              | 16000                                    | Audio sample rate (Hz) |
+| `MAX_AUDIO_LENGTH_SECONDS` | 30                                       | Maximum audio duration |
+| `SUPPORTED_LANGUAGES`      | Tamil, English, Hindi, Malayalam, Telugu | Supported languages    |
+
+---
+
+## 🎯 Model Information
+
+### VoiceGUARD (Mrkomiljon/voiceGUARD)
+
+- **Architecture:** Wav2Vec2ForSequenceClassification
+- **Training:** Fine-tuned on deepfake audio datasets
+- **Sample Rate:** 16000 Hz
+- **Input:** Raw audio waveform
+- **Output:** Binary classification (bonafide/spoof)
+- **Labels:**
+  - `0` = HUMAN (bonafide)
+  - `1` = AI_GENERATED (spoof)
+
+### Model Download
+
+The model is automatically downloaded from HuggingFace Hub on first run (~360MB). It's cached in `~/.cache/huggingface/` for subsequent runs.
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. Model download fails**
+
+```bash
+# Check internet connection
+# Try manual download:
+python -c "from transformers import Wav2Vec2ForSequenceClassification; Wav2Vec2ForSequenceClassification.from_pretrained('Mrkomiljon/voiceGUARD')"
+```
+
+**2. CUDA out of memory**
+
+```python
+# Force CPU usage in voiceguard_detector.py
+detector = VoiceGUARDDetector(device="cpu")
+```
+
+**3. Audio format not supported**
+
+```bash
+# Install ffmpeg for MP3 support
+# Windows: winget install ffmpeg
+# Mac: brew install ffmpeg
+# Linux: apt install ffmpeg
+```
+
+**4. Audio too short error**
+
+```
+# Minimum audio length: 0.5 seconds
+# Maximum audio length: 30 seconds
+```
+
+---
+
+## 📈 Performance
+
+| Metric               | Value                    |
+| -------------------- | ------------------------ |
+| Model Size           | ~360MB                   |
+| Inference Time (CPU) | 1-3 seconds              |
+| Inference Time (GPU) | <0.5 seconds             |
+| Sample Rate          | 16000 Hz                 |
+| Max Audio Length     | 30 seconds               |
+| Supported Formats    | MP3, WAV, FLAC, OGG, M4A |
+
+---
+
+## 📅 Development Progress
 
 ### Completion Status
 
 ```
-[████████████░░░░░░░] 60% Complete
+[████████████████░░░░] 80% Complete
 
 ✓ Feature 1: Project Setup (100%)
 ✓ Feature 2: Audio Processing (100%)
-⏳ Feature 3: Model Integration (0%)
-⏳ Feature 4: API Implementation (0%)
-⏳ Feature 5: Testing (0%)
-⏳ Feature 6: Deployment (0%)
-⏳ Feature 7: Documentation (0%)
+✓ Feature 3: VoiceGUARD Model Integration (100%) ← CURRENT
+⏳ Feature 4: API Authentication (0%)
+⏳ Feature 5: Deployment (0%)
+⏳ Feature 6: Documentation (50%)
 ```
 
-### Daily Log
+### Remaining Tasks
 
-**Day 1 (Jan 21):**
-
-- ✅ Project structure created
-- ✅ Environment setup complete
-- ✅ Basic FastAPI running
-
-**Day 2 (Jan 22):**
-
-- ✅ Audio processor implemented
-- ✅ Feature extraction working
-- ✅ All tests passing
-
-**Day 3 (Jan 23):**
-
-- ⏳ Model integration in progress
+- [ ] Add API key authentication
+- [ ] Docker containerization
+- [ ] Deploy to Railway/Render
+- [ ] Performance optimization
+- [ ] Create demo video
 
 ---
 
-## 🎓 Learning Outcomes
+## 🔧 Dependencies
 
-### Technical Skills Gained
+### Core Dependencies
 
-- ✅ Audio processing with Librosa
-- ✅ FastAPI development
-- ⏳ HuggingFace Transformers
-- ⏳ Model deployment
-- ⏳ REST API design
+```
+fastapi>=0.104.1          # Web framework
+uvicorn>=0.24.0           # ASGI server
+librosa>=0.10.1           # Audio processing
+torch>=2.1.0              # Deep learning
+transformers>=4.35.0      # HuggingFace models
+pydantic>=2.5.0           # Data validation
+```
 
-### Best Practices
+See `requirements.txt` for complete list.
 
-- ✅ Modular code structure
-- ✅ Comprehensive testing
-- ✅ Configuration management
-- ✅ Error handling
-- ✅ Documentation
+---
+
+## 📚 Resources
+
+- [VoiceGUARD Model](https://huggingface.co/Mrkomiljon/voiceGUARD)
+- [Wav2Vec2 Documentation](https://huggingface.co/docs/transformers/model_doc/wav2vec2)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Librosa Documentation](https://librosa.org/)
 
 ---
 
@@ -652,40 +468,13 @@ MIT License - See LICENSE file for details
 
 ## 🙏 Acknowledgments
 
-- HuggingFace for pre-trained models
+- [Mrkomiljon](https://huggingface.co/Mrkomiljon) for the VoiceGUARD model
+- HuggingFace for model hosting and transformers library
 - FastAPI community
-- Librosa developers
 - GUVI for organizing the hackathon
 
 ---
 
-**Last Updated:** January 23, 2025  
-**Status:** Feature 2 Complete ✓  
-**Next:** Feature 3 - Model Integration
-
----
-
-## 🚦 Quick Commands Reference
-
-```bash
-# Setup
-python verify_setup.py
-
-# Testing
-python tests/test_audio_processor.py
-python tests/test_with_real_audio.py
-
-# Development
-python main.py
-
-# Download sample
-python download_sample.py
-
-# Future commands (after Feature 3)
-python tests/test_model_detector.py
-python compare_detectors.py
-```
-
----
-
-_This README will be updated as features are completed._
+**Last Updated:** February 3, 2026  
+**Status:** Feature 3 Complete ✓  
+**Next:** Feature 4 - API Authentication & Deployment

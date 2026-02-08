@@ -1,68 +1,119 @@
 # main.py
-# Updated: Fixed duration-aware detection for short audio files
+"""
+AI Voice Detection API
+VoiceGUARD: Detect AI-generated vs Human voice using Wav2Vec2
+"""
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from config import config
-import uvicorn
-import time
-import logging
+from pydantic import BaseModel
 from contextlib import asynccontextmanager
-
-from schemas import (
-    VoiceDetectionRequest, 
-    VoiceDetectionResponse, 
+from config import config
+from api_models import (
+    ClassifyRequest, 
+    ClassifyResponse, 
     ErrorResponse,
-    HealthCheckResponse
+    HealthResponse,
+    ModelInfoResponse
 )
-from audio_preprocessor import AudioProcessor
-from model_detector import HybridDetector
+from voiceguard_detector import VoiceGUARDDetector, get_detector
+import uvicorn
+import logging
+import io
+import librosa
+import numpy as np
+import asyncio
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global instances (loaded on startup)
-audio_processor = None
-hybrid_detector = None
+# Global detector instance
+detector: VoiceGUARDDetector = None
+
+
+def run_inference(audio_data, sample_rate):
+    """Run model inference in a separate thread to prevent blocking"""
+    global detector
+    return detector.classify(audio_data, sample_rate)
+
+
+# Simple response model for file upload
+class SimpleClassifyResponse(BaseModel):
+    """Simplified classification response"""
+    classification: str
+    confidence: float
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "classification": "AI_GENERATED",
+                "confidence": 0.95
+            }
+        }
+    }
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager - loads models on startup"""
-    global audio_processor, hybrid_detector
+    """
+    Application lifespan handler
+    Loads model on startup, cleans up on shutdown
+    """
+    global detector
     
-    logger.info("🚀 Starting AI Voice Detection API...")
-    logger.info("Loading models...")
+    # Startup: Load the VoiceGUARD model
+    logger.info("=" * 50)
+    logger.info("Starting AI Voice Detection API...")
+    logger.info("=" * 50)
     
     try:
-        # Initialize audio processor
-        audio_processor = AudioProcessor(sample_rate=16000, max_duration=30)
-        logger.info("✓ Audio processor loaded")
-        
-        # Initialize hybrid detector (loads Wav2Vec2)
-        hybrid_detector = HybridDetector(ai_threshold=0.5)  # Default threshold
-        logger.info("✓ Hybrid detector loaded")
-        
-        logger.info("✅ All models loaded successfully!")
-        
+        detector = VoiceGUARDDetector()
+        detector.load_model()
+        logger.info("✓ VoiceGUARD model loaded and ready")
     except Exception as e:
-        logger.error(f"❌ Failed to load models: {e}")
-        raise
+        logger.error(f"Failed to load model: {e}")
+        logger.warning("API will attempt to load model on first request")
+        detector = VoiceGUARDDetector()
     
     yield
     
-    # Cleanup on shutdown
-    logger.info("🛑 Shutting down API...")
+    # Shutdown: Cleanup
+    logger.info("Shutting down AI Voice Detection API...")
+    detector = None
 
 
-# Initialize FastAPI app with lifespan
+# Initialize FastAPI app with lifespan handler
 app = FastAPI(
     title="AI Voice Detection API",
-    description="Multi-language voice authenticity detection using Wav2Vec2 + Acoustic Features",
-    version="1.0.0",
-    lifespan=lifespan
+    description="""
+    ## VoiceGUARD - AI Voice Detection System
+    
+    Multi-language voice authenticity detection API that identifies whether 
+    audio is **AI-generated** (deepfake) or **Human** (authentic).
+    
+    ### Features
+    - 🎯 Pre-trained Wav2Vec2 model fine-tuned for deepfake detection
+    - 🌍 Multi-language support (Tamil, English, Hindi, Malayalam, Telugu)
+    - 📊 Confidence scores and detailed analysis
+    - 🔒 Base64 audio input support
+    
+    ### Supported Audio Formats
+    - MP3, WAV, FLAC, OGG, M4A
+    
+    ### Endpoints
+    - **POST /detect** - Upload audio file directly (recommended)
+    - **POST /classify** - Send Base64 encoded audio
+    
+    ### Model
+    Uses `Mrkomiljon/voiceGUARD` from HuggingFace Hub
+    """,
+    version="2.0.0",
+    lifespan=lifespan,
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error"}
+    }
 )
 
 # Add CORS middleware
@@ -75,216 +126,180 @@ app.add_middleware(
 )
 
 
-# Exception handler for validation errors
-@app.exception_handler(ValueError)
-async def value_error_handler(request: Request, exc: ValueError):
-    """Handle validation errors"""
-    return JSONResponse(
-        status_code=400,
-        content=ErrorResponse(
-            status="error",
-            message=str(exc),
-            details={"error_type": "ValidationError"}
-        ).model_dump()
-    )
-
-
-@app.get("/")
+@app.get("/", tags=["General"])
 async def root():
-    """Root endpoint - API info"""
+    """
+    Root endpoint - API information
+    
+    Returns basic API information and available endpoints.
+    """
     return {
         "service": "AI Voice Detection API",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "model": "VoiceGUARD (Mrkomiljon/voiceGUARD)",
         "status": "running",
         "supported_languages": config.SUPPORTED_LANGUAGES,
+        "supported_formats": ["MP3", "WAV", "FLAC", "OGG", "M4A"],
         "endpoints": {
-            "detection": "/api/voice-detection",
-            "health": "/health",
-            "docs": "/docs"
+            "detect": "/detect - POST - Upload audio file directly (recommended)",
+            "classify": "/classify - POST - Classify Base64 audio",
+            "health": "/health - GET - Health check",
+            "model_info": "/model/info - GET - Model information",
+            "docs": "/docs - API documentation"
         }
     }
 
 
-@app.get("/health", response_model=HealthCheckResponse)
+@app.get("/health", response_model=HealthResponse, tags=["General"])
 async def health_check():
-    """Health check endpoint"""
-    return HealthCheckResponse(
+    """
+    Health check endpoint
+    
+    Returns the health status of the API and model.
+    """
+    global detector
+    
+    model_loaded = detector is not None and detector._is_loaded
+    
+    return HealthResponse(
         status="healthy",
         environment=config.ENVIRONMENT,
-        models_loaded=audio_processor is not None and hybrid_detector is not None,
-        supported_languages=config.SUPPORTED_LANGUAGES
+        model_loaded=model_loaded,
+        model_name=detector.model_name if detector else "Not initialized",
+        device=detector.device if detector else "N/A"
     )
 
 
-@app.post("/api/voice-detection", response_model=VoiceDetectionResponse)
-async def detect_voice(request: VoiceDetectionRequest):
+@app.get("/model/info", response_model=ModelInfoResponse, tags=["Model"])
+async def get_model_info():
     """
-    Detect if audio is AI-generated or human
+    Get model information
     
-    This endpoint analyzes audio using:
-    1. Wav2Vec2 embeddings (pre-trained transformer)
-    2. Acoustic features (MFCC, spectral, temporal)
-    3. Hybrid detection (combines both approaches)
-    
-    Supports: Tamil, English, Hindi, Malayalam, Telugu
+    Returns detailed information about the loaded VoiceGUARD model.
     """
-    start_time = time.time()
+    global detector
+    
+    if detector is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model not initialized"
+        )
+    
+    info = detector.get_model_info()
+    return ModelInfoResponse(**info)
+
+
+@app.post(
+    "/detect",
+    response_model=SimpleClassifyResponse,
+    responses={
+        200: {"description": "Successful classification"},
+        400: {"model": ErrorResponse, "description": "Invalid audio file"},
+        500: {"model": ErrorResponse, "description": "Classification failed"}
+    },
+    tags=["Classification"],
+    summary="Upload audio file for detection"
+)
+async def detect_audio_file(
+    file: UploadFile = File(..., description="Audio file (MP3, WAV, FLAC, OGG, M4A)")
+):
+    """
+    🎯 **Upload audio file directly for AI voice detection**
+    
+    This is the recommended endpoint for easy audio classification.
+    Simply upload your audio file and get the result.
+    
+    ## Supported Formats
+    - MP3, WAV, FLAC, OGG, M4A
+    
+    ## Response
+    - **classification**: `AI_GENERATED` or `HUMAN`
+    - **confidence**: Confidence score (0.0 - 1.0)
+    
+    ## Example using curl
+    ```bash
+    curl -X POST "http://localhost:8000/detect" \\
+      -F "file=@your_audio.mp3"
+    ```
+    """
+    global detector
+    
+    if detector is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model not initialized. Please try again."
+        )
+    
+    # Validate file type
+    allowed_extensions = ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.wma']
+    file_ext = '.' + file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+    
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format: {file_ext}. Supported: {', '.join(allowed_extensions)}"
+        )
     
     try:
-        # Validate models are loaded
-        if audio_processor is None or hybrid_detector is None:
+        logger.info(f"Processing uploaded file: {file.filename}")
+        
+        # Read file content
+        content = await file.read()
+        
+        if len(content) == 0:
             raise HTTPException(
-                status_code=503,
-                detail="Models not loaded. Please try again in a moment."
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Empty file uploaded"
             )
         
-        logger.info(f"Processing {request.language} audio ({len(request.audioBase64)} chars)")
+        # Load audio from bytes
+        audio_buffer = io.BytesIO(content)
+        audio, sr = librosa.load(audio_buffer, sr=16000, mono=True)
         
-        # Step 1: Decode and load audio (validation is done inside decode_base64_audio)
-        try:
-            audio, sample_rate = audio_processor.decode_base64_audio(request.audioBase64)
-            logger.info(f"✓ Audio decoded: {len(audio)} samples at {sample_rate}Hz")
-        except Exception as e:
-            raise ValueError(f"Failed to decode audio: {str(e)}")
+        logger.info(f"Audio loaded: {len(audio)/sr:.2f}s, {sr}Hz")
         
-        # Calculate original duration before preprocessing (preprocessing may pad audio)
-        original_duration = len(audio) / sample_rate
+        # Classify the audio using async pattern to prevent blocking
+        result = await asyncio.to_thread(run_inference, audio, sr)
         
-        # Step 2: Preprocess audio
-        try:
-            audio_processed = audio_processor.preprocess_audio(audio)
-            logger.info(f"✓ Audio preprocessed: {len(audio_processed)} samples")
-        except Exception as e:
-            raise ValueError(f"Failed to preprocess audio: {str(e)}")
-        
-        # Step 3: Extract acoustic features
-        try:
-            acoustic_features = audio_processor.extract_features(audio_processed)
-            logger.info(f"✓ Extracted {len(acoustic_features)} acoustic features")
-        except Exception as e:
-            raise ValueError(f"Failed to extract features: {str(e)}")
-        
-        # Step 4: Run hybrid detection (pass original duration to handle short audio correctly)
-        try:
-            classification, confidence, details = hybrid_detector.detect(
-                audio_processed,
-                acoustic_features,
-                sample_rate,
-                original_duration=original_duration
-            )
-            confidence_level = details.get('confidence_level', 'UNKNOWN')
-            logger.info(f"✓ Detection: {classification} ({confidence_level} confidence: {confidence:.2%})")
-        except Exception as e:
-            raise ValueError(f"Failed to run detection: {str(e)}")
-        
-        # Calculate processing time
-        processing_time_ms = int((time.time() - start_time) * 1000)
-        
-        # Generate explanation
-        explanation = _generate_explanation(classification, confidence, confidence_level, details)
-        
-        # Build response
-        response = VoiceDetectionResponse(
-            status="success",
-            language=request.language,
-            classification=classification,
-            confidenceScore=round(confidence, 4),
-            confidenceLevel=confidence_level,
-            explanation=explanation,
-            details={
-                "wav2vec2_score": round(details.get('wav2vec2', {}).get('ai_score', 0), 4),
-                "acoustic_score": round(details.get('acoustic_ai_score', 0), 4),
-                "combined_score": round(details.get('combined_score', 0), 4),
-                "processing_time_ms": processing_time_ms,
-                "audio_duration_seconds": round(len(audio) / sample_rate, 2),
-                "sample_rate": sample_rate
-            }
+        # Log result
+        logger.info(
+            f"Classification complete: {result['classification']} "
+            f"(confidence: {result['confidence']:.2%})"
         )
         
-        logger.info(f"✅ Request completed in {processing_time_ms}ms")
-        return response
-        
-    except ValueError as e:
-        # Validation errors (400)
-        logger.warning(f"Validation error: {e}")
-        return VoiceDetectionResponse(
-            status="error",
-            message=str(e)
+        # Return simplified response
+        return SimpleClassifyResponse(
+            classification=result['classification'],
+            confidence=round(result['confidence'], 4)
         )
         
     except HTTPException:
         raise
-        
-    except Exception as e:
-        # Unexpected errors (500)
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Classification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Classification failed: {str(e)}"
         )
 
 
-def _generate_explanation(classification: str, confidence: float, 
-                         confidence_level: str, details: dict) -> str:
-    """Generate human-readable explanation of the classification"""
-    
-    combined_score = details.get('combined_score', 0)
-    wav2vec2_score = details.get('wav2vec2', {}).get('ai_score', 0)
-    acoustic_score = details.get('acoustic_ai_score', 0)
-    
-    if classification == "UNCERTAIN":
-        return (
-            f"Classification uncertain (score: {combined_score:.2f}). "
-            f"The audio falls in a borderline zone between AI and human characteristics. "
-            f"Manual review or additional samples recommended."
-        )
-    
-    if classification == "AI_GENERATED":
-        reasons = []
-        
-        if wav2vec2_score > 0.7:
-            reasons.append("high consistency in voice embeddings")
-        
-        if acoustic_score > 0.5:
-            reasons.append("smooth acoustic patterns")
-        
-        if confidence_level == "HIGH":
-            confidence_desc = "very high"
-        elif confidence_level == "MEDIUM":
-            confidence_desc = "moderate"
-        else:
-            confidence_desc = "low"
-        
-        if reasons:
-            return f"Detected as AI-generated with {confidence_desc} confidence ({confidence:.0%}) due to {' and '.join(reasons)}."
-        else:
-            return f"Detected as AI-generated with {confidence_desc} confidence ({confidence:.0%})."
-    
-    else:  # HUMAN
-        reasons = []
-        
-        if wav2vec2_score < 0.3:
-            reasons.append("natural variations in voice embeddings")
-        
-        if acoustic_score < 0.3:
-            reasons.append("irregular acoustic patterns")
-        
-        if confidence_level == "HIGH":
-            confidence_desc = "very high"
-        elif confidence_level == "MEDIUM":
-            confidence_desc = "moderate"
-        else:
-            confidence_desc = "low"
-        
-        if reasons:
-            return f"Detected as human voice with {confidence_desc} confidence ({confidence:.0%}) due to {' and '.join(reasons)}."
-        else:
-            return f"Detected as human voice with {confidence_desc} confidence ({confidence:.0%})."
+# Legacy endpoint for backward compatibility
+@app.get("/api/health", tags=["Legacy"])
+async def legacy_health():
+    """Legacy health endpoint (deprecated)"""
+    return await health_check()
+
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",  # Import string format for reload
+        "main:app",
         host=config.HOST, 
         port=config.PORT,
-        reload=True  # Auto-reload on code changes
+        reload=True
     )

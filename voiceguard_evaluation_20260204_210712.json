@@ -1,0 +1,145 @@
+{
+  "evaluation_metadata": {
+    "timestamp": "2026-02-04T21:07:12.249373",
+    "model_name": "VoiceGUARD Bias-Corrected",
+    "total_files_evaluated": 2,
+    "synthetic_tests_run": 8
+  },
+  "file_evaluation": {
+    "results": [
+      {
+        "file_name": "sample voice 1.mp3",
+        "file_path": "test_sample\\sample voice 1.mp3",
+        "classification": "AI_GENERATED",
+        "confidence": 0.5188,
+        "inference_time_ms": 1802.3,
+        "audio_duration": 23.59,
+        "ast_score": 0.146,
+        "acoustic_score": 0.6909,
+        "ensemble_method": "50% Calibrated AST + 50% Enhanced Acoustic + Bias Correction"
+      },
+      {
+        "file_name": "sample_voice.mp3",
+        "file_path": "test_samples\\sample_voice.mp3",
+        "classification": "HUMAN",
+        "confidence": 0.7488,
+        "inference_time_ms": 1643.31,
+        "audio_duration": 372.72,
+        "ast_score": 0.7804,
+        "acoustic_score": 0.5811,
+        "ensemble_method": "50% Calibrated AST + 50% Enhanced Acoustic + Bias Correction"
+      }
+    ],
+    "summary": {
+      "human_classifications": 1,
+      "ai_classifications": 1,
+      "avg_confidence": 0.634,
+      "avg_inference_time_ms": 1722.8,
+      "confidence_distribution": {
+        "min": 0.519,
+        "max": 0.749,
+        "std": 0.115
+      }
+    }
+  },
+  "synthetic_evaluation": {
+    "results": [
+      {
+        "test_type": "bias_check",
+        "sample_id": 0,
+        "classification": "AI_GENERATED",
+        "confidence": 0.7095,
+        "frequency": 440
+      },
+      {
+        "test_type": "bias_check",
+        "sample_id": 1,
+        "classification": "AI_GENERATED",
+        "confidence": 0.5812,
+        "frequency": 490
+      },
+      {
+        "test_type": "bias_check",
+        "sample_id": 2,
+        "classification": "AI_GENERATED",
+        "confidence": 0.5111,
+        "frequency": 540
+      },
+      {
+        "test_type": "bias_check",
+        "sample_id": 3,
+        "classification": "AI_GENERATED",
+        "confidence": 0.5688,
+        "frequency": 590
+      },
+      {
+        "test_type": "bias_check",
+        "sample_id": 4,
+        "classification": "HUMAN",
+        "confidence": 0.5757,
+        "frequency": 640
+      },
+      {
+        "test_type": "edge_case",
+        "case": "short_audio",
+        "classification": "AI_GENERATED",
+        "confidence": 0.5739
+      },
+      {
+        "test_type": "edge_case",
+        "case": "silent_audio",
+        "classification": "AI_GENERATED",
+        "confidence": 0.6504
+      },
+      {
+        "test_type": "edge_case",
+        "case": "white_noise",
+        "classification": "AI_GENERATED",
+        "confidence": 0.5524
+      }
+    ],
+    "summary": {
+      "bias_check": {
+        "total_tests": 5,
+        "human_percentage": 20.0,
+        "ai_percentage": 80.0,
+        "bias_detected": true
+      },
+      "edge_cases": {
+        "successful_tests": 3,
+        "failed_tests": 0,
+        "results": {
+          "short_audio": "AI_GENERATED",
+          "silent_audio": "AI_GENERATED",
+          "white_noise": "AI_GENERATED"
+        }
+      }
+    }
+  },
+  "bias_analysis": {
+    "file_bias": {
+      "human_percentage": 50.0,
+      "ai_percentage": 50.0,
+      "potential_bias": "BALANCED"
+    },
+    "synthetic_bias": {
+      "human_percentage": 20.0,
+      "bias_score": 30.0,
+      "bias_status": "SIGNIFICANT"
+    }
+  },
+  "performance_analysis": {
+    "inference_performance": {
+      "avg_time_ms": 1722.8,
+      "min_time_ms": 1643.31,
+      "max_time_ms": 1802.3,
+      "std_time_ms": 79.5
+    },
+    "confidence_analysis": {
+      "avg_confidence": 0.634,
+      "confidence_std": 0.115,
+      "low_confidence_count": 1,
+      "high_confidence_count": 0
+    }
+  }
+}
